@@ -1,0 +1,40 @@
+baseURL: "https://todaysaidev.com/"
+languageCode: "ja"
+title: "本日のAI開発 / Today's AI Dev"
+theme: "PaperMod"
+
+params:
+  env: production
+  description: "AIエンジニアリングの最前線を毎日深掘り"
+  author: "Today's AI Dev"
+  defaultTheme: dark
+  ShowReadingTime: true
+  ShowShareButtons: true
+  ShowCodeCopyButtons: true
+  ShowToc: true
+  TocOpen: false
+
+  homeInfoParams:
+    Title: "本日のAI開発"
+    Content: "AIエンジニアリングの最前線を毎日深掘り。実装コード付きで解説します。"
+
+  socialIcons:
+    - name: youtube
+      url: "https://youtube.com/@todaysaidev"
+
+menu:
+  main:
+    - identifier: search
+      name: 検索
+      url: /search/
+      weight: 10
+    - identifier: tags
+      name: タグ
+      url: /tags/
+      weight: 20
+
+outputs:
+  home:
+    - HTML
+    - RSS
+    - JSON
