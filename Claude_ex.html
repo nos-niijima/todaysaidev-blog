@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code を「机」にたとえると</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#5a4632; --ink-soft:#8a7256; --cream:#FBF3E7; --cream2:#F4E6D0;
+    --line:rgba(120,90,55,.16);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:#EBDCC4;overflow:hidden;
+    font-family:'Zen Maru Gothic','Hiragino Maru Gothic ProN',sans-serif;color:var(--ink);}
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #canvas{position:relative;width:2300px;height:1294px;transform-origin:center center;
+    background:radial-gradient(120% 110% at 38% 26%, #FCF5EA 0%, #F6E9D5 52%, #EFDDC2 100%);
+    overflow:hidden;}
+
+  /* header */
+  .head{position:absolute;left:84px;top:64px;z-index:5;max-width:760px;}
+  .kicker{font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:18px;
+    letter-spacing:.18em;color:#C8704F;margin:0 0 10px;}
+  .title{font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:54px;
+    line-height:1.14;margin:0;color:#4a3826;letter-spacing:.01em;}
+  .title em{font-style:normal;color:#C8704F;}
+  .sub{font-size:19px;line-height:1.6;color:var(--ink-soft);margin:18px 0 0;font-weight:500;max-width:620px;}
+  .hint{position:absolute;left:84px;bottom:54px;z-index:5;display:flex;align-items:center;gap:12px;
+    font-size:16px;color:var(--ink-soft);font-weight:500;}
+  .hint .pulse{width:13px;height:13px;border-radius:50%;background:#C8704F;
+    box-shadow:0 0 0 0 rgba(200,112,79,.5);animation:pp 1.8s infinite;}
+  @keyframes pp{0%{box-shadow:0 0 0 0 rgba(200,112,79,.45)}70%{box-shadow:0 0 0 12px rgba(200,112,79,0)}100%{box-shadow:0 0 0 0 rgba(200,112,79,0)}}
+
+  /* scene */
+  #scene .hot{cursor:pointer;transition:opacity .35s ease, filter .25s ease;}
+  #scene.dim .hot{opacity:.30;}
+  #scene.dim .hot[data-active]{opacity:1;filter:drop-shadow(0 6px 16px rgba(120,80,40,.28));}
+  #scene .hot:hover{filter:drop-shadow(0 5px 12px rgba(120,80,40,.22));}
+  text{user-select:none;}
+
+  /* leader + dots + pills layer */
+  #overlay{position:absolute;inset:0;z-index:4;pointer-events:none;}
+  #leaders{position:absolute;inset:0;width:2300px;height:1294px;pointer-events:none;}
+  .dot{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+    background:#fff;border:3px solid currentColor;cursor:pointer;pointer-events:auto;
+    display:flex;align-items:center;justify-content:center;transition:transform .2s;}
+  .dot::after{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;}
+  .dot::before{content:"";position:absolute;inset:-7px;border-radius:50%;border:2px solid currentColor;
+    opacity:.55;animation:ring 2s infinite ease-out;}
+  @keyframes ring{0%{transform:scale(.7);opacity:.55}80%{transform:scale(1.5);opacity:0}100%{opacity:0}}
+  .dot:hover{transform:scale(1.18);}
+  .pill{position:absolute;pointer-events:auto;cursor:pointer;background:#fff;
+    border:2px solid currentColor;border-radius:999px;padding:8px 16px 8px 14px;
+    font-weight:700;font-size:16px;white-space:nowrap;color:#5a4632;
+    box-shadow:0 6px 16px rgba(120,80,40,.14);display:flex;align-items:center;gap:9px;
+    transform:translate(-50%,-50%);transition:transform .18s, box-shadow .18s;}
+  .pill .sw{width:12px;height:12px;border-radius:3px;background:currentColor;flex:none;}
+  .pill .tx{color:#5a4632;}
+  .pill:hover{transform:translate(-50%,-50%) scale(1.05);box-shadow:0 9px 22px rgba(120,80,40,.2);}
+
+  /* detail card */
+  #card{position:absolute;z-index:9;width:360px;background:#fff;border-radius:20px;
+    box-shadow:0 24px 60px rgba(90,60,30,.26);opacity:0;transform:translateY(10px) scale(.98);
+    pointer-events:none;transition:opacity .25s, transform .25s;overflow:hidden;}
+  #card.on{opacity:1;transform:none;pointer-events:auto;}
+  #card .bar{height:8px;}
+  #card .pad{padding:22px 24px 24px;}
+  #card .tag{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.04em;
+    padding:5px 12px;border-radius:999px;margin-bottom:14px;white-space:nowrap;}
+  #card h3{font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:25px;margin:0 0 12px;color:#3f2f1f;}
+  #card p{font-size:16.5px;line-height:1.72;margin:0;color:#6a5746;font-weight:500;white-space:pre-line;}
+  #card .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;}
+  #card .chip{font-size:14px;font-weight:700;padding:7px 13px;border-radius:10px;cursor:pointer;
+    color:#fff;border:none;transition:transform .15s, filter .15s;}
+  #card .chip:hover{transform:translateY(-2px);filter:brightness(1.05);}
+  #card .x{position:absolute;top:14px;right:16px;width:30px;height:30px;border-radius:50%;border:none;
+    background:rgba(120,90,55,.1);color:#7a6248;font-size:17px;cursor:pointer;line-height:1;}
+  #card .x:hover{background:rgba(120,90,55,.2);}
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#EFDDC2">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <g transform="translate(360,250)">
+      <!-- isometric desk silhouette -->
+      <polygon points="0,120 240,0 480,120 240,240" fill="#E8C89B" stroke="#C99B6E" stroke-width="6" stroke-linejoin="round"/>
+      <polygon points="0,120 0,250 240,370 240,240" fill="#D9B98C" stroke="#C99B6E" stroke-width="6" stroke-linejoin="round"/>
+      <polygon points="480,120 480,250 240,370 240,240" fill="#CDA877" stroke="#C99B6E" stroke-width="6" stroke-linejoin="round"/>
+      <!-- monitor -->
+      <polygon points="150,70 230,30 230,-70 150,-30" fill="#AEB8C6" stroke="#8a93a3" stroke-width="5" stroke-linejoin="round"/>
+      <!-- sticky notes -->
+      <polygon points="232,28 280,4 280,-22 232,2" fill="#F1A589"/>
+      <polygon points="232,-4 280,-28 280,-54 232,-30" fill="#F3D27E"/>
+    </g>
+  </svg>
+</template>
+<div id="stage">
+  <div id="canvas">
+    <div class="head">
+      <p class="kicker">CLAUDE CODE 早わかり</p>
+      <h1 class="title">Claude Code を、<br><em>オフィスの机</em>にたとえると。</h1>
+      <p class="sub">ディレクトリ構成は、ぜんぶ「机まわりの道具」で説明できます。気になる場所をクリックしてみてください。</p>
+    </div>
+
+    <svg id="svgRoot" width="2300" height="1294" viewBox="0 0 2300 1294">
+      <defs>
+        <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="13"/>
+        </filter>
+      </defs>
+      <g id="scene"></g>
+    </svg>
+
+    <div id="overlay">
+      <svg id="leaders" viewBox="0 0 2300 1294"></svg>
+      <div id="markers"></div>
+    </div>
+
+    <div id="card">
+      <div class="bar"></div>
+      <button class="x" aria-label="閉じる">✕</button>
+      <div class="pad">
+        <span class="tag"></span>
+        <h3></h3>
+        <p></p>
+        <div class="chips"></div>
+      </div>
+    </div>
+
+    <div class="hint"><span class="pulse"></span>各ラベル・付箋・引き出しをクリックすると説明が出ます</div>
+  </div>
+</div>
+
+<script src="scene.js"></script>
+<script src="build.js"></script>
+<script>
+/* ---- stage scaling ---- */
+const canvas = document.getElementById('canvas');
+function fit(){
+  const s = Math.min(innerWidth/2300, innerHeight/1294);
+  canvas.style.transform = `scale(${s})`;
+}
+addEventListener('resize', fit); fit();
+
+/* ---- build scene ---- */
+const OX = 560, OY = 640;
+const sceneG = document.getElementById('scene');
+sceneG.setAttribute('transform', `translate(${OX},${OY})`);
+const { svg, hotspots } = buildScene();
+sceneG.innerHTML = svg;
+
+/* ---- content ---- */
+const C = {
+  'claude-dir':{c:'#C8704F',tag:'.claude ディレクトリ',title:'PCに貼られた付箋',
+    body:'作業机のPCに貼られた付箋。このプロジェクトで Claude君 が守るルールをまとめた場所です。中身は4種類の付箋に分かれています。',
+    chips:['hooks','skills','settings','agents']},
+  'hooks':{c:'#E2845F',tag:'.claude / Hooks',title:'Hooks（フック）',
+    body:'「〜のときは、〜すること」。\n決まったタイミングで自動的に実行される約束事。\n例：「ファイルを保存したら、自動でテストを走らせる」。'},
+  'skills':{c:'#D5A12F',tag:'.claude / Skills',title:'Skills（スキル）',
+    body:'「〜の作業手順書」。\n決まった作業のやり方をまとめたマニュアル。Claude君 はこの手順に沿って進めます。'},
+  'settings':{c:'#3FA079',tag:'.claude / settings.json',title:'settings.json',
+    body:'「仕事上のルール！」。\n使うモデルや許可する操作など、仕事の進め方の基本設定をまとめたファイルです。'},
+  'agents':{c:'#8267C4',tag:'.claude / agents',title:'agents（依頼先）',
+    body:'「〜は、〜さんに依頼すること！」。\n特定の仕事を、別の担当（サブエージェント）に任せるための指示書です。'},
+  'drawers':{c:'#B07A3F',tag:'.claude 以外のディレクトリ',title:'プロジェクトの引き出し',
+    body:'src・docs・input・output など、プロジェクトの資料がしまわれた引き出し。\n必要なものだけ取り出して、机の上で作業します。'},
+  'desktop':{c:'#9A7B45',tag:'机の上',title:'作業コンテキスト',
+    body:'いま広げている作業スペース＝コンテキスト。\n引き出しから必要な資料だけを出して並べます。ここが散らからず整理されているほど、良い仕事ができます。'},
+  'bag':{c:'#C8704F',tag:'~/.claude（ホーム）',title:'持ち運べるカバン',
+    body:'ユーザー個人の設定。机の横に置かれた“持ち運べるカバン”で、どのプロジェクト（机）に移っても一緒。\n上の .claude が「この机専用」なのに対し、こちらは「自分専用・どこでも共通」です。'},
+  'board':{c:'#B58A55',tag:'CLAUDE.md',title:'部屋の掲示板',
+    body:'部屋の壁に貼られた掲示板＝みんな向けの共通ルール。\n机の奥にあって、Claude君 が常に目に入れて従います。'},
+  'subdesk':{c:'#8267C4',tag:'agents として呼ばれると',title:'もう一つの机',
+    body:'サブエージェントとして呼び出されると、隣にもう一つ机が用意されます。\nサブ側は自分の机（コンテキスト）で作業し、掲示板（CLAUDE.md）は共有。メインの机とは分かれています。'},
+};
+// which hotspots get a text pill, and their pixel offset from the anchor
+const PILL = {
+  'claude-dir':{label:'.claude（PCの付箋）', dx:-238, dy:64},
+  'drawers':{label:'引き出し（他のフォルダ）', dx:150, dy:78},
+  'desktop':{label:'机の上＝コンテキスト', dx:225, dy:-20},
+  'bag':{label:'~/.claude（カバン）', dx:-150, dy:30},
+  'board':{label:'CLAUDE.md（掲示板）', dx:0, dy:-46},
+  'subdesk':{label:'agents（隣の机）', dx:120, dy:-40},
+};
+
+/* ---- place markers ---- */
+const markers = document.getElementById('markers');
+const leaders = document.getElementById('leaders');
+const anchorPx = {};
+hotspots.forEach(h=>{
+  let ax, ay;
+  if(h.screen){ ax = OX + h.screen[0]; ay = OY + h.screen[1]; }
+  else { const p = ISO.proj(h.anchor[0],h.anchor[1],h.anchor[2]); ax = OX+p[0]; ay = OY+p[1]; }
+  anchorPx[h.id] = [ax,ay];
+  const col = C[h.id].c;
+  // dot (skip the four small sticky notes — they are labelled on the screen)
+  const NOTE=['hooks','skills','settings','agents'];
+  if(!NOTE.includes(h.id)){
+  const dot = document.createElement('div');
+  dot.className='dot'; dot.style.color=col; dot.style.left=ax+'px'; dot.style.top=ay+'px';
+  dot.dataset.id=h.id; markers.appendChild(dot);
+  }
+  // pill + leader
+  if(PILL[h.id]){
+    const px = ax+PILL[h.id].dx, py = ay+PILL[h.id].dy;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',ax);line.setAttribute('y1',ay);
+    line.setAttribute('x2',px);line.setAttribute('y2',py);
+    line.setAttribute('stroke',col);line.setAttribute('stroke-width','2');
+    line.setAttribute('stroke-dasharray','2 5');line.setAttribute('stroke-linecap','round');
+    line.setAttribute('opacity','.65');
+    leaders.appendChild(line);
+    const pill=document.createElement('div');
+    pill.className='pill';pill.style.color=col;pill.style.left=px+'px';pill.style.top=py+'px';
+    pill.dataset.id=h.id;
+    pill.innerHTML=`<span class="sw"></span><span class="tx">${PILL[h.id].label}</span>`;
+    markers.appendChild(pill);
+  }
+});
+
+/* ---- interaction ---- */
+const card = document.getElementById('card');
+const scene = document.getElementById('scene');
+let active = null;
+
+function groupsFor(id){ return scene.querySelectorAll(`.hot[data-id="${id}"]`); }
+
+function setActive(id){
+  active = id;
+  scene.classList.add('dim');
+  scene.querySelectorAll('.hot[data-active]').forEach(g=>g.removeAttribute('data-active'));
+  groupsFor(id).forEach(g=>g.setAttribute('data-active',''));
+  // card content
+  const d = C[id];
+  card.querySelector('.bar').style.background=d.c;
+  const tag=card.querySelector('.tag');
+  tag.textContent=d.tag; tag.style.background=d.c+'22'; tag.style.color=d.c;
+  card.querySelector('h3').textContent=d.title;
+  card.querySelector('p').textContent=d.body;
+  const chips=card.querySelector('.chips'); chips.innerHTML='';
+  (d.chips||[]).forEach(cid=>{
+    const b=document.createElement('button');b.className='chip';b.textContent=C[cid].title.replace(/（.*）/,'');
+    b.style.background=C[cid].c;b.onclick=(e)=>{e.stopPropagation();setActive(cid);};
+    chips.appendChild(b);
+  });
+  // position card near anchor, clamped
+  const [ax,ay]=anchorPx[id];
+  let cx=ax+34, cy=ay-40;
+  const W=360, H=card.offsetHeight||260;
+  if(cx+W>2280) cx=ax-34-W;
+  if(cx<24) cx=24;
+  cy=Math.max(24, Math.min(cy, 1294-H-24));
+  card.style.left=cx+'px'; card.style.top=cy+'px';
+  card.classList.add('on');
+}
+function clearActive(){
+  active=null; scene.classList.remove('dim');
+  scene.querySelectorAll('.hot[data-active]').forEach(g=>g.removeAttribute('data-active'));
+  card.classList.remove('on');
+}
+
+// clicks
+document.addEventListener('click',(e)=>{
+  const hit = e.target.closest('[data-id]');
+  if(hit){ e.stopPropagation(); setActive(hit.dataset.id); return; }
+  if(!e.target.closest('#card')) clearActive();
+});
+card.querySelector('.x').onclick=(e)=>{e.stopPropagation();clearActive();};
+
+// scene group clicks (svg elements)
+scene.addEventListener('click',(e)=>{
+  const g=e.target.closest('.hot');
+  if(g){ e.stopPropagation(); setActive(g.getAttribute('data-id')); }
+});
+</script>
+</body>
+</html>
