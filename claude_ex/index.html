@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
+<title>Claude Code を「机」にたとえると</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#5a4632; --ink-soft:#8a7256; --cream:#FBF3E7; --cream2:#F4E6D0;
+    --line:rgba(120,90,55,.16);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:#EBDCC4;overflow:hidden;
+    font-family:'Zen Maru Gothic','Hiragino Maru Gothic ProN',sans-serif;color:var(--ink);
+    -webkit-text-size-adjust:100%;}
+  #stage{position:fixed;inset:0;overflow:hidden;touch-action:none;}
+  #canvas{position:absolute;top:0;left:0;width:2300px;height:1294px;transform-origin:0 0;
+    background:radial-gradient(120% 110% at 38% 26%, #FCF5EA 0%, #F6E9D5 52%, #EFDDC2 100%);
+    overflow:hidden;will-change:transform;}
+
+  /* header */
+  .head{position:absolute;left:84px;top:64px;z-index:5;max-width:760px;}
+  .kicker{font-family:'Zen Kaku Gothic New',sans-serif;font-weight:700;font-size:18px;
+    letter-spacing:.18em;color:#C8704F;margin:0 0 10px;}
+  .title{font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:54px;
+    line-height:1.14;margin:0;color:#4a3826;letter-spacing:.01em;}
+  .title em{font-style:normal;color:#C8704F;}
+  .sub{font-size:19px;line-height:1.6;color:var(--ink-soft);margin:18px 0 0;font-weight:500;max-width:620px;}
+  .hint{position:absolute;left:84px;bottom:54px;z-index:5;display:flex;align-items:center;gap:12px;
+    font-size:16px;color:var(--ink-soft);font-weight:500;}
+  .hint .pulse{width:13px;height:13px;border-radius:50%;background:#C8704F;
+    box-shadow:0 0 0 0 rgba(200,112,79,.5);animation:pp 1.8s infinite;}
+  @keyframes pp{0%{box-shadow:0 0 0 0 rgba(200,112,79,.45)}70%{box-shadow:0 0 0 12px rgba(200,112,79,0)}100%{box-shadow:0 0 0 0 rgba(200,112,79,0)}}
+
+  /* scene */
+  #scene .hot{cursor:pointer;transition:opacity .35s ease, filter .25s ease;}
+  #scene.dim .hot{opacity:.30;}
+  #scene.dim .hot[data-active]{opacity:1;filter:drop-shadow(0 6px 16px rgba(120,80,40,.28));}
+  #scene .hot:hover{filter:drop-shadow(0 5px 12px rgba(120,80,40,.22));}
+  text{user-select:none;}
+
+  /* leader + dots + pills layer */
+  #overlay{position:absolute;inset:0;z-index:4;pointer-events:none;}
+  #leaders{position:absolute;inset:0;width:2300px;height:1294px;pointer-events:none;}
+  .dot{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+    background:#fff;border:3px solid currentColor;cursor:pointer;pointer-events:auto;
+    display:flex;align-items:center;justify-content:center;transition:transform .2s;}
+  .dot::after{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;}
+  .dot::before{content:"";position:absolute;inset:-7px;border-radius:50%;border:2px solid currentColor;
+    opacity:.55;animation:ring 2s infinite ease-out;}
+  @keyframes ring{0%{transform:scale(.7);opacity:.55}80%{transform:scale(1.5);opacity:0}100%{opacity:0}}
+  .dot:hover{transform:scale(1.18);}
+  .pill{position:absolute;pointer-events:auto;cursor:pointer;background:#fff;
+    border:2px solid currentColor;border-radius:999px;padding:8px 16px 8px 14px;
+    font-weight:700;font-size:16px;white-space:nowrap;color:#5a4632;
+    box-shadow:0 6px 16px rgba(120,80,40,.14);display:flex;align-items:center;gap:9px;
+    transform:translate(-50%,-50%);transition:transform .18s, box-shadow .18s;}
+  .pill .sw{width:12px;height:12px;border-radius:3px;background:currentColor;flex:none;}
+  .pill .tx{color:#5a4632;}
+  .pill:hover{transform:translate(-50%,-50%) scale(1.05);box-shadow:0 9px 22px rgba(120,80,40,.2);}
+
+  /* detail card (desktop, lives inside the scaled canvas) */
+  #card{position:absolute;z-index:9;width:360px;background:#fff;border-radius:20px;
+    box-shadow:0 24px 60px rgba(90,60,30,.26);opacity:0;transform:translateY(10px) scale(.98);
+    pointer-events:none;transition:opacity .25s, transform .25s;overflow:hidden;}
+  #card.on{opacity:1;transform:none;pointer-events:auto;}
+
+  /* shared card/sheet inner */
+  .bar{height:8px;}
+  .pad{padding:22px 24px 24px;position:relative;}
+  .tag{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.04em;
+    padding:5px 12px;border-radius:999px;margin-bottom:14px;white-space:nowrap;}
+  h3.t{font-family:'Zen Kaku Gothic New',sans-serif;font-weight:900;font-size:25px;margin:0 0 12px;color:#3f2f1f;}
+  p.b{font-size:16.5px;line-height:1.72;margin:0;color:#6a5746;font-weight:500;white-space:pre-line;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;}
+  .chip{font-size:14px;font-weight:700;padding:7px 13px;border-radius:10px;cursor:pointer;
+    color:#fff;border:none;transition:transform .15s, filter .15s;}
+  .chip:hover{transform:translateY(-2px);filter:brightness(1.05);}
+  .x{position:absolute;top:14px;right:16px;width:34px;height:34px;border-radius:50%;border:none;
+    background:rgba(120,90,55,.1);color:#7a6248;font-size:17px;cursor:pointer;line-height:1;}
+  .x:hover{background:rgba(120,90,55,.2);}
+
+  /* bottom sheet (mobile) — lives at body level, fixed to viewport */
+  #sheet{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;
+    border-radius:22px 22px 0 0;box-shadow:0 -14px 50px rgba(90,60,30,.28);
+    transform:translateY(115%);transition:transform .32s cubic-bezier(.2,.8,.2,1);
+    max-height:80vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding-bottom:calc(16px + env(safe-area-inset-bottom));display:none;}
+  #sheet.on{transform:none;}
+  #sheet .grab{width:42px;height:5px;border-radius:3px;background:rgba(120,90,55,.22);
+    margin:10px auto 2px;}
+  #sheet h3.t{font-size:23px;}
+  #sheet p.b{font-size:16px;}
+
+  /* reset / fit-to-view button */
+  #reset{position:fixed;top:calc(12px + env(safe-area-inset-top));right:12px;z-index:40;
+    width:46px;height:46px;border-radius:14px;border:none;cursor:pointer;
+    background:rgba(255,255,255,.92);color:#7a6248;font-size:20px;line-height:1;
+    box-shadow:0 6px 18px rgba(120,80,40,.18);backdrop-filter:blur(4px);}
+  #reset:active{transform:scale(.94);}
+
+  /* scrim behind the sheet on mobile */
+  #scrim{position:fixed;inset:0;z-index:25;background:rgba(60,42,24,.28);
+    opacity:0;pointer-events:none;transition:opacity .3s;}
+  #scrim.on{opacity:1;pointer-events:auto;}
+
+  @media (max-width:860px){
+    .sub{display:none;}
+    .hint{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="canvas">
+    <div class="head">
+      <p class="kicker">CLAUDE CODE 早わかり</p>
+      <h1 class="title">Claude Code を、<br><em>オフィスの机</em>にたとえると。</h1>
+      <p class="sub">ディレクトリ構成は、ぜんぶ「机まわりの道具」で説明できます。気になる場所をクリックしてみてください。</p>
+    </div>
+
+    <svg id="svgRoot" width="2300" height="1294" viewBox="0 0 2300 1294">
+      <defs>
+        <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="13"/>
+        </filter>
+      </defs>
+      <g id="scene"></g>
+    </svg>
+
+    <div id="overlay">
+      <svg id="leaders" viewBox="0 0 2300 1294"></svg>
+      <div id="markers"></div>
+    </div>
+
+    <!-- desktop detail card -->
+    <div id="card">
+      <div class="bar"></div>
+      <div class="pad">
+        <button class="x" aria-label="閉じる">✕</button>
+        <span class="tag"></span>
+        <h3 class="t"></h3>
+        <p class="b"></p>
+        <div class="chips"></div>
+      </div>
+    </div>
+
+    <div class="hint"><span class="pulse"></span>各ラベル・付箋・引き出しをクリックすると説明が出ます</div>
+  </div>
+</div>
+
+<!-- mobile scrim + bottom sheet (viewport-fixed, outside the scaled canvas) -->
+<div id="scrim"></div>
+<div id="sheet" aria-hidden="true">
+  <div class="grab"></div>
+  <div class="bar"></div>
+  <div class="pad">
+    <button class="x" aria-label="閉じる">✕</button>
+    <span class="tag"></span>
+    <h3 class="t"></h3>
+    <p class="b"></p>
+    <div class="chips"></div>
+  </div>
+</div>
+
+<button id="reset" title="全体表示" aria-label="全体表示にもどす">⤢</button>
+
+<script src="scene.js"></script>
+<script src="build.js"></script>
+<script>
+/* ===================== build scene ===================== */
+const OX = 560, OY = 640;
+const sceneG = document.getElementById('scene');
+sceneG.setAttribute('transform', `translate(${OX},${OY})`);
+const { svg, hotspots } = buildScene();
+sceneG.innerHTML = svg;
+
+/* ===================== content ===================== */
+const C = {
+  'claude-dir':{c:'#C8704F',tag:'.claude ディレクトリ',title:'PCに貼られた付箋',
+    body:'作業机のPCに貼られた付箋。このプロジェクトで Claude君 が守るルールをまとめた場所です。中身は4種類の付箋に分かれています。',
+    chips:['hooks','skills','settings','agents']},
+  'hooks':{c:'#E2845F',tag:'.claude / Hooks',title:'Hooks（フック）',
+    body:'「〜のときは、〜すること」。\n決まったタイミングで自動的に実行される約束事。\n例：「ファイルを保存したら、自動でテストを走らせる」。'},
+  'skills':{c:'#D5A12F',tag:'.claude / Skills',title:'Skills（スキル）',
+    body:'「〜の作業手順書」。\n決まった作業のやり方をまとめたマニュアル。Claude君 はこの手順に沿って進めます。'},
+  'settings':{c:'#3FA079',tag:'.claude / settings.json',title:'settings.json',
+    body:'「仕事上のルール！」。\n使うモデルや許可する操作など、仕事の進め方の基本設定をまとめたファイルです。'},
+  'agents':{c:'#8267C4',tag:'.claude / agents',title:'agents（依頼先）',
+    body:'「〜は、〜さんに依頼すること！」。\n特定の仕事を、別の担当（サブエージェント）に任せるための指示書です。'},
+  'drawers':{c:'#B07A3F',tag:'.claude 以外のディレクトリ',title:'プロジェクトの引き出し',
+    body:'src・docs・input・output など、プロジェクトの資料がしまわれた引き出し。\n必要なものだけ取り出して、机の上で作業します。'},
+  'desktop':{c:'#9A7B45',tag:'机の上',title:'作業コンテキスト',
+    body:'いま広げている作業スペース＝コンテキスト。\n引き出しから必要な資料だけを出して並べます。ここが散らからず整理されているほど、良い仕事ができます。'},
+  'bag':{c:'#C8704F',tag:'~/.claude（ホーム）',title:'持ち運べるカバン',
+    body:'ユーザー個人の設定。机の横に置かれた“持ち運べるカバン”で、どのプロジェクト（机）に移っても一緒。\n上の .claude が「この机専用」なのに対し、こちらは「自分専用・どこでも共通」です。'},
+  'board':{c:'#B58A55',tag:'CLAUDE.md',title:'部屋の掲示板',
+    body:'部屋の壁に貼られた掲示板＝みんな向けの共通ルール。\n机の奥にあって、Claude君 が常に目に入れて従います。'},
+  'subdesk':{c:'#8267C4',tag:'agents として呼ばれると',title:'もう一つの机',
+    body:'サブエージェントとして呼び出されると、隣にもう一つ机が用意されます。\nサブ側は自分の机（コンテキスト）で作業し、掲示板（CLAUDE.md）は共有。メインの机とは分かれています。'},
+};
+const PILL = {
+  'claude-dir':{label:'.claude（PCの付箋）', dx:-238, dy:64},
+  'drawers':{label:'引き出し（他のフォルダ）', dx:150, dy:78},
+  'desktop':{label:'机の上＝コンテキスト', dx:225, dy:-20},
+  'bag':{label:'~/.claude（カバン）', dx:-150, dy:30},
+  'board':{label:'CLAUDE.md（掲示板）', dx:0, dy:-46},
+  'subdesk':{label:'agents（隣の机）', dx:120, dy:-40},
+};
+
+/* ===================== place markers ===================== */
+const markers = document.getElementById('markers');
+const leaders = document.getElementById('leaders');
+const anchorPx = {};
+hotspots.forEach(h=>{
+  let ax, ay;
+  if(h.screen){ ax = OX + h.screen[0]; ay = OY + h.screen[1]; }
+  else { const p = ISO.proj(h.anchor[0],h.anchor[1],h.anchor[2]); ax = OX+p[0]; ay = OY+p[1]; }
+  anchorPx[h.id] = [ax,ay];
+  const col = C[h.id].c;
+  const NOTE=['hooks','skills','settings','agents'];
+  if(!NOTE.includes(h.id)){
+    const dot = document.createElement('div');
+    dot.className='dot'; dot.style.color=col; dot.style.left=ax+'px'; dot.style.top=ay+'px';
+    dot.dataset.id=h.id; markers.appendChild(dot);
+  }
+  if(PILL[h.id]){
+    const px = ax+PILL[h.id].dx, py = ay+PILL[h.id].dy;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',ax);line.setAttribute('y1',ay);
+    line.setAttribute('x2',px);line.setAttribute('y2',py);
+    line.setAttribute('stroke',col);line.setAttribute('stroke-width','2');
+    line.setAttribute('stroke-dasharray','2 5');line.setAttribute('stroke-linecap','round');
+    line.setAttribute('opacity','.65');
+    leaders.appendChild(line);
+    const pill=document.createElement('div');
+    pill.className='pill';pill.style.color=col;pill.style.left=px+'px';pill.style.top=py+'px';
+    pill.dataset.id=h.id;
+    pill.innerHTML=`<span class="sw"></span><span class="tx">${PILL[h.id].label}</span>`;
+    markers.appendChild(pill);
+  }
+});
+
+/* ===================== view transform (pan + zoom) ===================== */
+const NAT_W = 2300, NAT_H = 1294;
+const stage  = document.getElementById('stage');
+const canvas = document.getElementById('canvas');
+let scale = 1, tx = 0, ty = 0;
+
+function isMobile(){ return window.matchMedia('(max-width:860px)').matches; }
+function fitScale(){
+  const iw = innerWidth, ih = innerHeight;
+  return isMobile() ? (iw / NAT_W) : Math.min(iw / NAT_W, ih / NAT_H);
+}
+function scaleLimits(){
+  const whole = Math.min(innerWidth / NAT_W, innerHeight / NAT_H);
+  return { min: whole * 0.85, max: Math.max(whole * 6, 2.4) };
+}
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function apply(){ canvas.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; }
+function resetView(){
+  scale = fitScale();
+  tx = (innerWidth  - NAT_W * scale) / 2;
+  ty = (innerHeight - NAT_H * scale) / 2;
+  apply();
+}
+addEventListener('resize', resetView);
+resetView();
+document.getElementById('reset').addEventListener('click', resetView);
+
+/* ---- wheel / trackpad zoom (focus at cursor) ---- */
+stage.addEventListener('wheel', (e)=>{
+  e.preventDefault();
+  const { min, max } = scaleLimits();
+  const factor = Math.exp(-e.deltaY * 0.0015);
+  const ns = clamp(scale * factor, min, max);
+  const wx = (e.clientX - tx) / scale, wy = (e.clientY - ty) / scale;
+  scale = ns;
+  tx = e.clientX - ns * wx;
+  ty = e.clientY - ns * wy;
+  apply();
+}, { passive:false });
+
+/* ---- touch pan + pinch ---- */
+let mode = null, moved = false;
+let lastX = 0, lastY = 0;
+let startDist = 0, startScale = 1, worldFocal = {x:0,y:0};
+function dist(t){ const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.hypot(dx,dy); }
+function mid(t){ return { x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2 }; }
+
+stage.addEventListener('touchstart', (e)=>{
+  if(e.touches.length === 1){
+    mode = 'pan'; moved = false;
+    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+  } else if(e.touches.length === 2){
+    mode = 'pinch'; moved = true;
+    startDist = dist(e.touches); startScale = scale;
+    const m = mid(e.touches);
+    worldFocal = { x:(m.x - tx)/scale, y:(m.y - ty)/scale };
+  }
+}, { passive:true });
+
+stage.addEventListener('touchmove', (e)=>{
+  if(mode === 'pan' && e.touches.length === 1){
+    const x = e.touches[0].clientX, y = e.touches[0].clientY;
+    const dx = x - lastX, dy = y - lastY;
+    if(Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+    if(moved){
+      e.preventDefault();
+      tx += dx; ty += dy; lastX = x; lastY = y; apply();
+    }
+  } else if(mode === 'pinch' && e.touches.length === 2){
+    e.preventDefault();
+    const { min, max } = scaleLimits();
+    const m = mid(e.touches);
+    const ns = clamp(startScale * (dist(e.touches) / startDist), min, max);
+    scale = ns;
+    tx = m.x - ns * worldFocal.x;
+    ty = m.y - ns * worldFocal.y;
+    apply();
+  }
+}, { passive:false });
+
+stage.addEventListener('touchend', (e)=>{
+  if(mode === 'pinch' && e.touches.length === 1){
+    // drop back to single-finger pan
+    mode = 'pan'; lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+  } else if(e.touches.length === 0){
+    mode = null;
+  }
+}, { passive:true });
+
+/* ===================== interaction ===================== */
+const card  = document.getElementById('card');
+const sheet = document.getElementById('sheet');
+const scrim = document.getElementById('scrim');
+const scene = document.getElementById('scene');
+let active = null;
+
+function groupsFor(id){ return scene.querySelectorAll(`.hot[data-id="${id}"]`); }
+
+function populate(box, d){
+  box.querySelector('.bar').style.background = d.c;
+  const tag = box.querySelector('.tag');
+  tag.textContent = d.tag; tag.style.background = d.c + '22'; tag.style.color = d.c;
+  box.querySelector('h3.t').textContent = d.title;
+  box.querySelector('p.b').textContent = d.body;
+  const chips = box.querySelector('.chips'); chips.innerHTML = '';
+  (d.chips || []).forEach(cid=>{
+    const b = document.createElement('button');
+    b.className = 'chip'; b.textContent = C[cid].title.replace(/（.*）/, '');
+    b.style.background = C[cid].c;
+    b.onclick = (e)=>{ e.stopPropagation(); setActive(cid); };
+    chips.appendChild(b);
+  });
+}
+
+function setActive(id){
+  active = id;
+  scene.classList.add('dim');
+  scene.querySelectorAll('.hot[data-active]').forEach(g=>g.removeAttribute('data-active'));
+  groupsFor(id).forEach(g=>g.setAttribute('data-active',''));
+  const d = C[id];
+
+  if(isMobile()){
+    sheet.style.display = 'block';
+    populate(sheet, d);
+    // reflow so the transition runs
+    void sheet.offsetHeight;
+    sheet.classList.add('on');
+    scrim.classList.add('on');
+    card.classList.remove('on');
+  } else {
+    populate(card, d);
+    const [ax,ay] = anchorPx[id];
+    let cx = ax + 34, cy = ay - 40;
+    const W = 360, H = card.offsetHeight || 260;
+    if(cx + W > NAT_W - 20) cx = ax - 34 - W;
+    if(cx < 24) cx = 24;
+    cy = Math.max(24, Math.min(cy, NAT_H - H - 24));
+    card.style.left = cx + 'px'; card.style.top = cy + 'px';
+    card.classList.add('on');
+    sheet.classList.remove('on');
+    scrim.classList.remove('on');
+  }
+}
+
+function clearActive(){
+  active = null;
+  scene.classList.remove('dim');
+  scene.querySelectorAll('.hot[data-active]').forEach(g=>g.removeAttribute('data-active'));
+  card.classList.remove('on');
+  sheet.classList.remove('on');
+  scrim.classList.remove('on');
+}
+
+// global click: open on hotspot/marker, close when tapping empty space
+document.addEventListener('click',(e)=>{
+  const hit = e.target.closest('[data-id]');
+  if(hit){ e.stopPropagation(); setActive(hit.dataset.id); return; }
+  if(!e.target.closest('#card') && !e.target.closest('#sheet')) clearActive();
+});
+card.querySelector('.x').onclick  = (e)=>{ e.stopPropagation(); clearActive(); };
+sheet.querySelector('.x').onclick = (e)=>{ e.stopPropagation(); clearActive(); };
+scrim.addEventListener('click', clearActive);
+
+// scene group clicks (svg elements)
+scene.addEventListener('click',(e)=>{
+  const g = e.target.closest('.hot');
+  if(g){ e.stopPropagation(); setActive(g.getAttribute('data-id')); }
+});
+</script>
+</body>
+</html>
